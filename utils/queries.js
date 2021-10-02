@@ -1,11 +1,8 @@
 import axios from "axios";
 
-export async function fetchEntries(page = 1, filter) {
+export async function fetchEntries(filter) {
     const { data } = await axios.get(`/api/entries`, {
-        params: {
-            offset: page,
-            ...filter 
-        }
+        params: filter
     });
     return data;
 }

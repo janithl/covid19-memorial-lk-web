@@ -6,68 +6,10 @@ import { useTranslations } from "use-intl";
 
 const geo = require(`../data/geo_latest.json`);
 
-const initialState = {
-    init: true,
-    province: undefined,
-    district: undefined,
-    city: undefined,
-    ageRange: undefined,
-    gender: undefined,
-};
-
-const reducer = (pureState, action) => {
-    const state = {
-        ...pureState,
-        init: false
-    }
-    switch (action.type) {
-        case "RESET":
-            return {
-                ...initialState,
-                init: false
-            };
-        case "AGE":
-            return {
-                ...state,
-                ageRange: action.value
-            }
-        case "GENDER":
-            return {
-                ...state,
-                gender: action.value
-            }
-        case "PROVINCE":
-            return {
-                ...state,
-                province: action.value,
-                district: undefined,
-                city: undefined
-            }
-        case "DISTRICT":
-            return {
-                ...state,
-                district: action.value,
-                city: undefined
-            }
-        case "CITY":
-            return {
-                ...state,
-                city: action.value
-            }
-    }
-}
-
-const Filter = ({ setFilter }) => {
+const Filter = ({ filter, dispatch }) => {
 
     const { locale } = useRouter();
-    const [filter, dispatch] = useReducer(reducer, initialState);
     const t = useTranslations('filter');
-
-    useEffect(() => {
-        if (!filter.init) {
-            setFilter(filter);
-        }
-    }, [filter]);
 
     return (
         <div class="collapse collapse-arrow px-0 py-0">

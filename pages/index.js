@@ -1,6 +1,6 @@
-import { last, slice, toInteger } from 'lodash';
+import { last } from 'lodash';
 import Head from 'next/head'
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useReducer } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
 import Entry from '../components/Entry';
 import Footer from '../components/Footer';
@@ -13,56 +13,52 @@ import { useIntl, useTranslations } from 'use-intl';
 import { serialize } from 'next-mdx-remote/serialize'
 import { MDXRemote } from 'next-mdx-remote'
 import Filter from '../components/Filter';
+import { filterInitialState, filterReducer } from '../utils/reducers';
 
 export default function Home(props) {
 
   const queryClient = useQueryClient()
   const loader = useRef(null);
-  const [items, setItems] = useState([]);
-  const [offset, setOffset] = useState(0);
-  const [filter, setFilter] = useState(null);
-  // const [toTop, setToTop] = useState(false);
-
   const t = useTranslations('home');
   const intl = useIntl();
 
+  const [items, setItems] = useState([]);
+  const [hasNext, setHasNext] = useState(false);
+  const [filter, filterDispatch] = useReducer(filterReducer, filterInitialState);
+
+  // On Entry Query Success
+  const onSuccess = (data) => {
+    // Clear Page If New Page
+    if (filter.page == 0){
+      setItems(data.data); 
+    } else {
+      setItems((items) => [...items, ...data.data]);
+    }
+    // Prefetch and set has next flag.
+    if (data.links.next){
+      setHasNext(true);
+      const mutatedFilter = {
+        ...filter,
+        page: filter.page + 1
+      }
+      queryClient.prefetchQuery(['entries', JSON.stringify(mutatedFilter)], () => fetchEntries(mutatedFilter));
+    } else {
+      setHasNext(false);
+    }
+  }
+
   // Fetch Entries, on initial offset use rendered dataset.
-  const { status, data, error, isFetching } = useQuery(['entries', offset, filter],
-    () => (fetchEntries(offset, filter)),
-    { keepPreviousData: true, staleTime: 5000 }
+  const { status, data, isFetching } = useQuery(['entries', JSON.stringify(filter)],
+    () => (fetchEntries(filter)),
+    { keepPreviousData: true, staleTime: 5000, onSuccess: onSuccess}
   )
 
-  // On data fetch changes
-  useEffect(() => {
-    if (status == "success") {
-      // Append Items On Successful Fetch
-      // If Offset is zero then don't append!
-      setItems((items) => (offset == 0 ? [...data.data] : [...items, ...data.data]));
-      // If Next Link Available, then pre-fetch.
-      if (data.links.next){
-        queryClient.prefetchQuery(['entries', offset + 1, filter], () => fetchEntries(offset + 1, filter));
-      }
-    }
-  }, [status, data]);
-
-  // On Filter Change Empty Items
-  useEffect(() => {
-    if (filter) {
-      setOffset(0);
-      // setToTop(false);
-    }
-  }, [filter])
-
-  // When user is near intersecting end.
-  intersectHook(()=> {
-    if (items.length >= 0) {
-      setOffset((offset) => (offset + 1));
-    }
-  }, "50%", loader);
-
+  //When user is near intersecting end.
   // intersectHook(()=> {
-  //   setToTop(true);
-  // }, "5%", loader);
+  //   if (hasNext) {
+  //     filterDispatch({ type: "PAGE_UP"});
+  //   }
+  // }, "30%", loader);
 
   return (
     <>
@@ -72,9 +68,6 @@ export default function Home(props) {
 
       <Header />
       <main className={"md:container min-h-screen mx-auto px-4 py-1 mb-4 relative"}>
-        {/* <button onClick={()=>{window.scrollTo({top: 0, left: 0, behavior: 'smooth'}); setToTop(false)}} className={`btn fixed bottom-0 right-0 mb-8 mr-8 ${toTop ? "block z-50" : "hidden"}`}>
-          <FontAwesomeIcon icon={faChevronUp} size="2x"/>
-        </button> */}
         <div className="bg-base-300 rounded-xl my-1 lg:my-4">
           <div className="card">
             <div className="card-body text-sm md:text-base">
@@ -88,7 +81,7 @@ export default function Home(props) {
           </div>
         </div>
         <div className="pt-1">
-          <Filter setFilter={(f) => {setFilter(f)}}/>
+          <Filter filter={filter} dispatch={filterDispatch}/>
         </div>
         {items.length == 0 && !isFetching ? (<div className="p-8 text-center text-lg font-semibold">
           <p>{t('noResults')}</p>
@@ -97,13 +90,18 @@ export default function Home(props) {
             {items.map((i) => (<Entry key={i.id} data={i}/>))}
           </div>
         )}
+        <div ref={loader} className="text-center py-8">
+          <button class={`btn btn-md ${isFetching ? 'loading' : ''}`} onClick={()=>{filterDispatch({ type: "PAGE_UP"})}} disabled={!hasNext}>
+            {isFetching ? t('loading') : "Load More"}
+          </button>
+        </div>
       </main>
-      <div key="loader" ref={loader}>
-          {isFetching? (<div className="text-center text-lg font-semibold p-4">
+      {/* {isFetching ? (
+        <div className="text-center text-lg font-semibold p-4">
             <FontAwesomeIcon className="animate-spin w-5 h-5" icon={faSpinner} />
             <p>{t('loading')}</p>
-          </div>) : []}
-      </div>
+        </div>) : []
+      } */}
       <Footer/>
     </>
   )

@@ -4,7 +4,7 @@ const data = require("../../data/latest.json");
 export default function dataAPI(req, res) {
   
   const offset = parseInt(req.query.offset) || 0;
-  const limit = parseInt(req.query.limit) || 50;
+  const limit = parseInt(req.query.limit) || 100;
   const arrayOffset = offset * limit;
 
   // Set initial data.
@@ -51,7 +51,7 @@ export default function dataAPI(req, res) {
   }
   
   // Set Pagination Link if next offset contains data. 
-  if (data.length >= ((offset +1) * limit)) {
+  if (slicedData.length >= ((offset +1) * limit)) {
     links["next"] = `/api/entries?offset=${offset +1}&limit=${limit}`;
   }
 
